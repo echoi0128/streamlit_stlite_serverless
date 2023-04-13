@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <title>Stlite App - Serverless</title>
+</head>
+<body>
+  <script src="https://whitphx.github.io/stlite/lib/application/stlite.js" ></script>
+  <script>
+    stlite.mount({
+      mainScriptData: `
+import streamlit as st  # web development (frond-end mostly)
+import numpy as np
+import pandas as pd
+import time
+import plotly.express as px  # for interactive chart
+import plost
+import sys
+import cx_Oracle
+
+host = "prdsecshdwdb02.dmz.root"
+port = "1521"
+service_name = "SHADOW_PRD.WORLD"
+user = 'echoi'
+pw = "TGtg4584981"
+
+# Oracle Shadow connection
+dsn_tns_shadow = cx_Oracle.makedsn(host, port, service_name=service_name)
+connection_shadow = cx_Oracle.connect(user=user, password=pw, dsn=dsn_tns_shadow, encoding='iso-8859-1')
+cursor_shadow = connection_shadow.cursor()
+
+# retrieve the underlying data to be sent
+sql_file = open("Shadow_Fails.sql")
+data = pd.read_sql_query((sql_file.read()), con=connection_shadow)
+data['NEW_SFAIL_BEG_DATE'] = data['SFAIL_BEG_DATE'].dt.strftime('%m/%d/%Y')
+# print(data)
+
+# configure the widgets/layouts
+st.set_page_config(page_title='MOTOR Data App in Streamlit (Proof of Concept)', layout='wide')
+
+# app/dashboard title
+st.title('MOTOR Data App in Streamlit (Proof of Concept)')
+
+# top-level filters  ex. multiselect
+user_filter = st.sidebar.selectbox('Search', pd.unique(data['NEW_SFAIL_BEG_DATE']))   # st.sidebar.selectbar
+
+# creat a single-element placeholder: allow to remove/replace elements at any point --> ex. refresh real-time data continuously
+placeholder = st.empty()
+
+# filter
+data = data[data['NEW_SFAIL_BEG_DATE'] == user_filter]
+
+with placeholder.container():
+    # create three columns
+    kpi1, kpi2, kpi3 = st.columns(3)
+    with kpi1:
+        st.markdown('### Metrics')
+        kpi1.metric(label='Total Amount', value=np.sum(data['SFAIL_AMOUNT_CURR']), delta=np.sum(data['SFAIL_AMOUNT_CURR'] - 10))
+        # kpi2 = metric(label='Average Age')
+    with kpi2:
+        st.markdown('### Bar Chart')
+        fig = px.bar(data_frame=data, y='SFAIL_AMOUNT_ASSET', x='SBUCK_TRD_DATE')
+        st.write(fig)
+    st.markdown('### Detailed Data View')
+    st.dataframe(data)
+`
+    })
+  </script>
+</body>
+
+
+</html>
